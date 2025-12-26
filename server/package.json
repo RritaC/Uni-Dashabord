@@ -1,0 +1,17 @@
+{
+    "name": "uni-dashboard-server",
+    "version": "1.0.0",
+    "type": "module",
+    "scripts": {
+        "dev": "node --watch server.js",
+        "start": "node server.js"
+    },
+    "dependencies": {
+        "cors": "^2.8.5",
+        "dotenv": "^16.6.1",
+        "express": "^4.22.1"
+    },
+    "optionalDependencies": {
+        "better-sqlite3": "^11.10.0"
+    }
+}
