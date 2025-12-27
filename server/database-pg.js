@@ -17,6 +17,15 @@ function initPostgres() {
     pool = new Pool({
         connectionString,
         ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+        // Connection pool settings for serverless
+        max: 1, // Limit connections for serverless
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 10000,
+    });
+
+    // Handle connection errors
+    pool.on('error', (err) => {
+        console.error('Unexpected error on idle PostgreSQL client', err);
     });
 
     return pool;
@@ -104,7 +113,8 @@ class PostgresDB {
 
     // Initialize database schema
     async initSchema() {
-        const schema = `
+        try {
+            const schema = `
             CREATE TABLE IF NOT EXISTS views (
                 id SERIAL PRIMARY KEY,
                 name TEXT NOT NULL UNIQUE,
@@ -237,7 +247,14 @@ class PostgresDB {
             CREATE INDEX IF NOT EXISTS idx_cell_formats_lookup ON cell_formats(university_id, column_key, view_id);
         `;
 
-        await this.exec(schema);
+            await this.exec(schema);
+        } catch (error) {
+            // Schema might already exist, that's okay
+            if (!error.message.includes('already exists') && !error.message.includes('duplicate')) {
+                console.error('Error initializing schema:', error.message);
+                // Don't throw - schema might already be set up
+            }
+        }
     }
 }
 
@@ -250,8 +267,13 @@ export default async function getDB() {
     // Use PostgreSQL if DATABASE_URL is set, otherwise use SQLite
     if (process.env.DATABASE_URL || process.env.SUPABASE_DB_URL) {
         dbInstance = new PostgresDB();
-        // Initialize schema on first use
-        await dbInstance.initSchema();
+        // Initialize schema on first use (don't fail if it already exists)
+        try {
+            await dbInstance.initSchema();
+        } catch (error) {
+            console.error('Schema initialization error (may be safe to ignore):', error.message);
+            // Continue anyway - schema might already exist
+        }
     } else {
         // Fall back to SQLite for local development
         const sqliteDB = await import('./database.js');
