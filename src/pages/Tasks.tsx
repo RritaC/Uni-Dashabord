@@ -1,12 +1,14 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Plus, Edit2, Trash2, Search, Filter, X } from 'lucide-react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { Plus, Edit2, Trash2, Search, Filter, X, Eye } from 'lucide-react';
 import { fetchTasks, saveTask, updateTask, deleteTask } from '../services/api';
 import AddTaskModal from '../components/AddTaskModal';
 import EditTaskModal from '../components/EditTaskModal';
+import TaskDetailModal from '../components/TaskDetailModal';
 
 interface Task {
     id: string;
     title: string;
+    description: string | null;
     completed: boolean;
     dueDate: string | null;
     priority: 'low' | 'medium' | 'high';
@@ -23,9 +25,11 @@ export default function Tasks() {
     const [tasks, setTasks] = useState<Task[]>([]);
     const [showAddModal, setShowAddModal] = useState(false);
     const [editingTask, setEditingTask] = useState<Task | null>(null);
+    const [selectedTask, setSelectedTask] = useState<Task | null>(null);
     const [draggedItem, setDraggedItem] = useState<Task | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [priorityFilter, setPriorityFilter] = useState<string>('all');
+    const isDraggingRef = useRef(false);
 
     useEffect(() => {
         loadTasks();
@@ -37,6 +41,7 @@ export default function Tasks() {
             setTasks(data.map((t: any) => ({
                 id: t.id,
                 title: t.title,
+                description: t.description || null,
                 completed: t.completed,
                 dueDate: t.due_date,
                 priority: t.priority,
@@ -56,6 +61,7 @@ export default function Tasks() {
         const taskData = {
             id: task.id,
             title: task.title,
+            description: task.description || null,
             completed: task.completed ? 1 : 0,
             due_date: task.dueDate,
             priority: task.priority,
@@ -77,6 +83,7 @@ export default function Tasks() {
     async function handleUpdateTask(updatedTask: Task) {
         const taskData = {
             title: updatedTask.title,
+            description: updatedTask.description || null,
             completed: updatedTask.completed ? 1 : 0,
             due_date: updatedTask.dueDate,
             priority: updatedTask.priority,
@@ -109,9 +116,18 @@ export default function Tasks() {
     }
 
     function handleDragStart(e: React.DragEvent, task: Task) {
+        isDraggingRef.current = true;
         setDraggedItem(task);
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', task.id);
+    }
+
+    function handleDragEnd() {
+        // Reset drag state
+        setTimeout(() => {
+            isDraggingRef.current = false;
+            setDraggedItem(null);
+        }, 50);
     }
 
     function handleDragOver(e: React.DragEvent) {
@@ -130,6 +146,7 @@ export default function Tasks() {
             };
             const taskData = {
                 title: updatedTask.title,
+                description: updatedTask.description || null,
                 completed: updatedTask.completed ? 1 : 0,
                 due_date: updatedTask.dueDate,
                 priority: updatedTask.priority,
@@ -244,25 +261,49 @@ export default function Tasks() {
                                         key={task.id}
                                         draggable={true}
                                         onDragStart={(e) => handleDragStart(e, task)}
+                                        onDragEnd={handleDragEnd}
                                         className="bg-white rounded-lg shadow p-4 cursor-move hover:shadow-lg hover:border-purple-300 border-2 border-transparent transition-all"
                                     >
                                         <div className="flex justify-between items-start mb-2">
                                             <h4 className="font-medium text-gray-900 text-sm flex-1">{task.title}</h4>
-                                            <div className="flex gap-1">
+                                            <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                                                 <button
-                                                    onClick={() => setEditingTask(task)}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setSelectedTask(task);
+                                                    }}
+                                                    className="p-1 text-gray-400 hover:text-purple-600"
+                                                    title="View details"
+                                                >
+                                                    <Eye className="w-3 h-3" />
+                                                </button>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setEditingTask(task);
+                                                    }}
                                                     className="p-1 text-gray-400 hover:text-blue-600"
+                                                    title="Edit task"
                                                 >
                                                     <Edit2 className="w-3 h-3" />
                                                 </button>
                                                 <button
-                                                    onClick={() => handleDelete(task.id)}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDelete(task.id);
+                                                    }}
                                                     className="p-1 text-gray-400 hover:text-red-600"
+                                                    title="Delete task"
                                                 >
                                                     <Trash2 className="w-3 h-3" />
                                                 </button>
                                             </div>
                                         </div>
+                                        {task.description && (
+                                            <p className="text-xs text-gray-600 mb-2 line-clamp-2">
+                                                {task.description}
+                                            </p>
+                                        )}
                                         {task.dueDate && (
                                             <p className="text-xs text-gray-500 mb-2">
                                                 Due: {new Date(task.dueDate).toLocaleDateString()}
@@ -291,6 +332,17 @@ export default function Tasks() {
                     task={editingTask}
                     onClose={() => setEditingTask(null)}
                     onSave={handleUpdateTask}
+                />
+            )}
+
+            {selectedTask && (
+                <TaskDetailModal
+                    task={selectedTask}
+                    onClose={() => setSelectedTask(null)}
+                    onEdit={() => {
+                        setSelectedTask(null);
+                        setEditingTask(selectedTask);
+                    }}
                 />
             )}
         </div>

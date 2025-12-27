@@ -10,6 +10,7 @@ interface EditTaskModalProps {
 export default function EditTaskModal({ task, onClose, onSave }: EditTaskModalProps) {
     const [formData, setFormData] = useState({
         title: task.title || '',
+        description: task.description || '',
         priority: task.priority || 'medium',
         dueDate: task.dueDate || '',
         completed: task.completed || false,
@@ -21,6 +22,7 @@ export default function EditTaskModal({ task, onClose, onSave }: EditTaskModalPr
         const updated = {
             ...task,
             title: formData.title,
+            description: formData.description || null,
             priority: formData.priority,
             dueDate: formData.dueDate || null,
             completed: formData.completed,
@@ -49,6 +51,17 @@ export default function EditTaskModal({ task, onClose, onSave }: EditTaskModalPr
                             onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                             required
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                        <textarea
+                            value={formData.description}
+                            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                            rows={4}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                            placeholder="Add a detailed description for this task..."
                         />
                     </div>
 

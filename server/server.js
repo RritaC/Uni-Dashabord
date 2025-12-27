@@ -190,8 +190,14 @@ Return ONLY valid JSON matching the schema.`;
     }
 });
 
-app.listen(PORT, () => {
-    console.log(`Proxy server running on http://localhost:${PORT}`);
-    console.log(`AI API endpoint: POST /api/ai`);
-});
+// Export for Vercel serverless
+export default app;
+
+// Start server for local development
+if (process.env.NODE_ENV !== 'production' || process.env.VERCEL !== '1') {
+    app.listen(PORT, () => {
+        console.log(`Proxy server running on http://localhost:${PORT}`);
+        console.log(`AI API endpoint: POST /api/ai`);
+    });
+}
 

@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, Edit2, Trash2, Search, Filter, X } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Filter, X, Eye, Calendar, Clock, AlertCircle } from 'lucide-react';
 import { fetchUniversities, fetchApplications, saveApplication, updateApplication, deleteApplication } from '../services/api';
 import AddApplicationModal from '../components/AddApplicationModal';
 import EditApplicationModal from '../components/EditApplicationModal';
+import ApplicationDetailModal from '../components/ApplicationDetailModal';
 
 interface Application {
     id: string;
@@ -11,6 +12,7 @@ interface Application {
     universityId?: number;
     status: 'to-do' | 'in-progress' | 'interview' | 'submitted' | 'accepted' | 'done';
     deadline: string | null;
+    description: string | null;
     notes: string | null;
     createdAt: number;
     updatedAt: number;
@@ -30,6 +32,7 @@ export default function Applications() {
     const [universities, setUniversities] = useState<any[]>([]);
     const [showAddModal, setShowAddModal] = useState(false);
     const [editingApp, setEditingApp] = useState<Application | null>(null);
+    const [selectedApp, setSelectedApp] = useState<Application | null>(null);
     const [draggedItem, setDraggedItem] = useState<Application | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -52,6 +55,7 @@ export default function Applications() {
                 universityId: app.university_id,
                 status: app.status,
                 deadline: app.deadline,
+                description: app.description || null,
                 notes: app.notes,
                 createdAt: app.created_at || app.createdAt,
                 updatedAt: app.updated_at || app.updatedAt,
@@ -81,6 +85,7 @@ export default function Applications() {
             university_id: application.universityId,
             status: application.status,
             deadline: application.deadline,
+            description: application.description || null,
             notes: application.notes,
             created_at: application.createdAt,
             updated_at: application.updatedAt,
@@ -105,6 +110,7 @@ export default function Applications() {
             university_id: updatedApp.universityId,
             status: updatedApp.status,
             deadline: updatedApp.deadline,
+            description: updatedApp.description || null,
             notes: updatedApp.notes,
             updated_at: updatedApp.updatedAt,
         };
@@ -164,14 +170,6 @@ export default function Applications() {
         setDraggedItem(null);
     }
 
-    function getApplicationName(app: Application): string {
-        if (app.type === 'university' && app.universityId) {
-            const uni = universities.find(u => u.id === app.universityId);
-            return uni?.name || 'Unknown University';
-        }
-        return app.name;
-    }
-
     const filteredApplications = useMemo(() => {
         return applications.filter(app => {
             const matchesSearch = app.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -180,6 +178,69 @@ export default function Applications() {
             return matchesSearch && matchesType;
         });
     }, [applications, searchQuery, typeFilter, universities]);
+
+    // Calculate KPIs
+    const kpis = useMemo(() => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        // Find upcoming applications (not completed/accepted)
+        const upcomingApps = applications.filter(app => {
+            if (!app.deadline) return false;
+            const deadline = new Date(app.deadline);
+            deadline.setHours(0, 0, 0, 0);
+            const isNotCompleted = !['accepted', 'done'].includes(app.status);
+            return isNotCompleted && deadline >= today;
+        });
+
+        // Find the closest deadline
+        let closestApp: Application | null = null;
+        let daysLeft: number | null = null;
+        
+        if (upcomingApps.length > 0) {
+            closestApp = upcomingApps.reduce((closest, app) => {
+                const appDeadline = new Date(app.deadline!);
+                appDeadline.setHours(0, 0, 0, 0);
+                const closestDeadline = closest ? new Date(closest.deadline!) : null;
+                closestDeadline?.setHours(0, 0, 0, 0);
+                
+                if (!closestDeadline || appDeadline < closestDeadline) {
+                    return app;
+                }
+                return closest;
+            });
+
+            if (closestApp?.deadline) {
+                const deadline = new Date(closestApp.deadline);
+                deadline.setHours(0, 0, 0, 0);
+                const diffTime = deadline.getTime() - today.getTime();
+                daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            }
+        }
+
+        return {
+            currentDate: today,
+            closestApp,
+            daysLeft,
+        };
+    }, [applications]);
+
+    const formatDate = (date: Date) => {
+        return date.toLocaleDateString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+        });
+    };
+
+    const getApplicationName = (app: Application) => {
+        if (app.type === 'university' && app.universityId) {
+            const uni = universities.find(u => u.id === app.universityId);
+            return uni?.name || 'Unknown University';
+        }
+        return app.name;
+    };
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-indigo-50/20">
@@ -192,6 +253,89 @@ export default function Applications() {
                     <Plus className="w-4 h-4 mr-2" />
                     Add Application
                 </button>
+            </div>
+
+            {/* KPI Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                {/* Current Date */}
+                <div className="bg-white rounded-lg shadow-sm border-2 border-blue-100 p-4">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-blue-100 rounded-lg">
+                            <Calendar className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div>
+                            <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">Today's Date</p>
+                            <p className="text-lg font-semibold text-gray-900">{formatDate(kpis.currentDate)}</p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Closest Application */}
+                <div className="bg-white rounded-lg shadow-sm border-2 border-indigo-100 p-4">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-indigo-100 rounded-lg">
+                            <AlertCircle className="w-5 h-5 text-indigo-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">Next Deadline</p>
+                            {kpis.closestApp ? (
+                                <p className="text-lg font-semibold text-gray-900 truncate" title={getApplicationName(kpis.closestApp)}>
+                                    {getApplicationName(kpis.closestApp)}
+                                </p>
+                            ) : (
+                                <p className="text-lg font-semibold text-gray-400">No upcoming deadlines</p>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Days Left */}
+                <div className={`rounded-lg shadow-sm border-2 p-4 ${
+                    kpis.daysLeft !== null && kpis.daysLeft <= 7 
+                        ? 'bg-red-50 border-red-200' 
+                        : kpis.daysLeft !== null && kpis.daysLeft <= 14
+                        ? 'bg-yellow-50 border-yellow-200'
+                        : 'bg-green-50 border-green-200'
+                }`}>
+                    <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-lg ${
+                            kpis.daysLeft !== null && kpis.daysLeft <= 7 
+                                ? 'bg-red-100' 
+                                : kpis.daysLeft !== null && kpis.daysLeft <= 14
+                                ? 'bg-yellow-100'
+                                : 'bg-green-100'
+                        }`}>
+                            <Clock className={`w-5 h-5 ${
+                                kpis.daysLeft !== null && kpis.daysLeft <= 7 
+                                    ? 'text-red-600' 
+                                    : kpis.daysLeft !== null && kpis.daysLeft <= 14
+                                    ? 'text-yellow-600'
+                                    : 'text-green-600'
+                            }`} />
+                        </div>
+                        <div>
+                            <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">Days Remaining</p>
+                            {kpis.daysLeft !== null ? (
+                                <p className={`text-2xl font-bold ${
+                                    kpis.daysLeft <= 7 
+                                        ? 'text-red-600' 
+                                        : kpis.daysLeft <= 14
+                                        ? 'text-yellow-600'
+                                        : 'text-green-600'
+                                }`}>
+                                    {kpis.daysLeft === 0 ? 'Due Today!' : `${kpis.daysLeft} ${kpis.daysLeft === 1 ? 'day' : 'days'}`}
+                                </p>
+                            ) : (
+                                <p className="text-2xl font-bold text-gray-400">—</p>
+                            )}
+                        </div>
+                    </div>
+                    {kpis.closestApp?.deadline && (
+                        <p className="text-xs text-gray-500 mt-2">
+                            Due: {new Date(kpis.closestApp.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </p>
+                    )}
+                </div>
             </div>
 
             {/* Filter Header */}
@@ -254,21 +398,44 @@ export default function Applications() {
                                     >
                                         <div className="flex justify-between items-start mb-2">
                                             <h4 className="font-medium text-gray-900 text-sm">{getApplicationName(app)}</h4>
-                                            <div className="flex gap-1">
+                                            <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                                                 <button
-                                                    onClick={() => setEditingApp(app)}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setSelectedApp(app);
+                                                    }}
                                                     className="p-1 text-gray-400 hover:text-blue-600"
+                                                    title="View details"
+                                                >
+                                                    <Eye className="w-3 h-3" />
+                                                </button>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setEditingApp(app);
+                                                    }}
+                                                    className="p-1 text-gray-400 hover:text-blue-600"
+                                                    title="Edit application"
                                                 >
                                                     <Edit2 className="w-3 h-3" />
                                                 </button>
                                                 <button
-                                                    onClick={() => handleDelete(app.id)}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDelete(app.id);
+                                                    }}
                                                     className="p-1 text-gray-400 hover:text-red-600"
+                                                    title="Delete application"
                                                 >
                                                     <Trash2 className="w-3 h-3" />
                                                 </button>
                                             </div>
                                         </div>
+                                        {app.description && (
+                                            <p className="text-xs text-gray-600 mb-2 line-clamp-2">
+                                                {app.description}
+                                            </p>
+                                        )}
                                         {app.deadline && (
                                             <p className="text-xs text-gray-500 mb-1">
                                                 Due: {new Date(app.deadline).toLocaleDateString()}
@@ -297,6 +464,18 @@ export default function Applications() {
                     application={editingApp}
                     onClose={() => setEditingApp(null)}
                     onSave={handleUpdateApplication}
+                />
+            )}
+
+            {selectedApp && (
+                <ApplicationDetailModal
+                    application={selectedApp}
+                    universityName={selectedApp.universityId ? universities.find(u => u.id === selectedApp.universityId)?.name : undefined}
+                    onClose={() => setSelectedApp(null)}
+                    onEdit={() => {
+                        setSelectedApp(null);
+                        setEditingApp(selectedApp);
+                    }}
                 />
             )}
         </div>

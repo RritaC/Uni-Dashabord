@@ -1,0 +1,31 @@
+# Fly.io configuration for Uni Dashboard Server
+# Run: flyctl launch (first time) or flyctl deploy (subsequent deployments)
+
+app = "uni-dashboard-server"  # Change this to your preferred app name
+primary_region = "iad"  # Change to your preferred region (e.g., "sjc", "lax", "ord")
+
+[build]
+  # Fly.io will auto-detect Node.js, or you can use a Dockerfile
+
+[env]
+  NODE_ENV = "production"
+  PORT = "3001"
+
+[http_service]
+  internal_port = 3001
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+[[vm]]
+  memory_mb = 256  # Free tier limit (3GB persistent volume storage is free)
+  cpu_kind = "shared"
+  cpus = 1
+
+# Persistent volume for SQLite database
+[[mounts]]
+  source = "db_data"
+  destination = "/data"
+

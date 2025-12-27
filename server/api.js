@@ -250,11 +250,11 @@ router.get('/applications', (req, res) => {
 
 router.post('/applications', (req, res) => {
     try {
-        const { id, name, type, university_id, status, deadline, notes, created_at, updated_at } = req.body;
+        const { id, name, type, university_id, status, deadline, description, notes, created_at, updated_at } = req.body;
         db.prepare(`
-      INSERT OR REPLACE INTO applications (id, name, type, university_id, status, deadline, notes, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(id, name, type, university_id, status, deadline, notes, created_at, updated_at);
+      INSERT OR REPLACE INTO applications (id, name, type, university_id, status, deadline, description, notes, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(id, name, type, university_id, status, deadline, description || null, notes, created_at, updated_at);
         res.json({ success: true });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -263,12 +263,12 @@ router.post('/applications', (req, res) => {
 
 router.put('/applications/:id', (req, res) => {
     try {
-        const { name, type, university_id, status, deadline, notes, updated_at } = req.body;
+        const { name, type, university_id, status, deadline, description, notes, updated_at } = req.body;
         db.prepare(`
       UPDATE applications 
-      SET name = ?, type = ?, university_id = ?, status = ?, deadline = ?, notes = ?, updated_at = ?
+      SET name = ?, type = ?, university_id = ?, status = ?, deadline = ?, description = ?, notes = ?, updated_at = ?
       WHERE id = ?
-    `).run(name, type, university_id, status, deadline, notes, updated_at, req.params.id);
+    `).run(name, type, university_id, status, deadline, description || null, notes, updated_at, req.params.id);
         res.json({ success: true });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -296,11 +296,11 @@ router.get('/tasks', (req, res) => {
 
 router.post('/tasks', (req, res) => {
     try {
-        const { id, title, completed, due_date, priority, created_at } = req.body;
+        const { id, title, description, completed, due_date, priority, created_at } = req.body;
         db.prepare(`
-      INSERT OR REPLACE INTO tasks (id, title, completed, due_date, priority, created_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(id, title, completed ? 1 : 0, due_date, priority, created_at);
+      INSERT OR REPLACE INTO tasks (id, title, description, completed, due_date, priority, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(id, title, description || null, completed ? 1 : 0, due_date, priority, created_at);
         res.json({ success: true });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -309,12 +309,12 @@ router.post('/tasks', (req, res) => {
 
 router.put('/tasks/:id', (req, res) => {
     try {
-        const { title, completed, due_date, priority } = req.body;
+        const { title, description, completed, due_date, priority } = req.body;
         db.prepare(`
       UPDATE tasks 
-      SET title = ?, completed = ?, due_date = ?, priority = ?
+      SET title = ?, description = ?, completed = ?, due_date = ?, priority = ?
       WHERE id = ?
-    `).run(title, completed ? 1 : 0, due_date, priority, req.params.id);
+    `).run(title, description || null, completed ? 1 : 0, due_date, priority, req.params.id);
         res.json({ success: true });
     } catch (error) {
         res.status(500).json({ error: error.message });

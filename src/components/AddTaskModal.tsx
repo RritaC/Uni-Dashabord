@@ -9,6 +9,7 @@ interface AddTaskModalProps {
 export default function AddTaskModal({ onClose, onSave }: AddTaskModalProps) {
     const [formData, setFormData] = useState({
         title: '',
+        description: '',
         priority: 'medium' as const,
         dueDate: '',
     });
@@ -19,6 +20,7 @@ export default function AddTaskModal({ onClose, onSave }: AddTaskModalProps) {
         const task = {
             id: Date.now().toString(),
             title: formData.title,
+            description: formData.description || null,
             completed: false,
             dueDate: formData.dueDate || null,
             priority: formData.priority,
@@ -48,6 +50,17 @@ export default function AddTaskModal({ onClose, onSave }: AddTaskModalProps) {
                             onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                             required
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                        <textarea
+                            value={formData.description}
+                            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                            rows={4}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                            placeholder="Add a detailed description for this task..."
                         />
                     </div>
 
