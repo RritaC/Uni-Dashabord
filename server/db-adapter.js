@@ -2,14 +2,14 @@
 // Automatically detects which to use based on DATABASE_URL environment variable
 
 let db = null;
-let isPostgres = false;
+let _isPostgres = false;
 
 export async function initDB() {
     if (db) return db;
-    
+
     // Check if we should use PostgreSQL
     if (process.env.DATABASE_URL || process.env.SUPABASE_DB_URL) {
-        isPostgres = true;
+        _isPostgres = true;
         const pgModule = await import('./database-pg.js');
         db = await pgModule.default();
         console.log('Using PostgreSQL database');
@@ -19,7 +19,7 @@ export async function initDB() {
         db = sqliteModule.default;
         console.log('Using SQLite database');
     }
-    
+
     return db;
 }
 
@@ -31,5 +31,7 @@ export function getDB() {
     return db;
 }
 
-export { isPostgres };
+export function isPostgres() {
+    return _isPostgres;
+}
 

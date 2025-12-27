@@ -1,4 +1,4 @@
-import db from './database.js';
+import { dbQuery, dbGet, dbRun } from './db-helper.js';
 
 const GENERAL_COLUMNS = [
     { key: 'nr', label: 'Nr', type: 'number', section: 'Basics', pinned: true, order_index: 0 },
@@ -89,53 +89,47 @@ const UNIVERSITIES = [
     { name: 'NYU', country: 'US', state: 'New York', city: 'New York City', type: 'Private', website: 'https://www.nyu.edu' },
 ];
 
-export function seedDatabase() {
+export async function seedDatabase() {
     // Check if General view exists
     let viewId = null;
-    const checkView = db.prepare('SELECT id FROM views WHERE name = ?').get('General');
-    
+    const checkView = await dbGet('SELECT id FROM views WHERE name = ?', ['General']);
+
     if (checkView) {
         viewId = checkView.id;
     } else {
         console.log('Seeding database...');
         // Create General view
-        const insertView = db.prepare('INSERT INTO views (name) VALUES (?)');
-        const viewResult = insertView.run('General');
+        const viewResult = await dbRun('INSERT INTO views (name) VALUES (?)', ['General']);
         viewId = viewResult.lastInsertRowid;
     }
-    
+
     // Always ensure universities and values are populated
     console.log('Ensuring universities and values are populated...');
 
-    // Insert universities if they don't exist
-    const insertUni = db.prepare(`
-    INSERT INTO universities (name, country, state, city, type, website)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `);
-
     const uniIds = [];
-    UNIVERSITIES.forEach((uni, index) => {
+    for (const uni of UNIVERSITIES) {
         // Check if university already exists
-        const existing = db.prepare('SELECT id FROM universities WHERE name = ?').get(uni.name);
+        const existing = await dbGet('SELECT id FROM universities WHERE name = ?', [uni.name]);
         if (existing) {
             uniIds.push(existing.id);
         } else {
-            const result = insertUni.run(uni.name, uni.country, uni.state, uni.city, uni.type, uni.website);
+            const result = await dbRun(`
+                INSERT INTO universities (name, country, state, city, type, website)
+                VALUES (?, ?, ?, ?, ?, ?)
+            `, [uni.name, uni.country, uni.state, uni.city, uni.type, uni.website]);
             uniIds.push(result.lastInsertRowid);
         }
-    });
+    }
 
     // Insert columns if they don't exist
-    const insertCol = db.prepare(`
-    INSERT INTO columns (view_id, key, label, type, section, select_options, pinned, visible, order_index)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-
-    GENERAL_COLUMNS.forEach(col => {
+    for (const col of GENERAL_COLUMNS) {
         // Check if column already exists
-        const existing = db.prepare('SELECT id FROM columns WHERE view_id = ? AND key = ?').get(viewId, col.key);
+        const existing = await dbGet('SELECT id FROM columns WHERE view_id = ? AND key = ?', [viewId, col.key]);
         if (!existing) {
-            insertCol.run(
+            await dbRun(`
+                INSERT INTO columns (view_id, key, label, type, section, select_options, pinned, visible, order_index)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `, [
                 viewId,
                 col.key,
                 col.label,
@@ -145,50 +139,59 @@ export function seedDatabase() {
                 col.pinned ? 1 : 0,
                 1,
                 col.order_index
-            );
+            ]);
         }
-    });
-
-    // Set initial values for basic columns
-    const insertValue = db.prepare(`
-    INSERT OR REPLACE INTO "values" (university_id, column_key, view_id, value)
-    VALUES (?, ?, ?, ?)
-  `);
+    }
 
     // Set initial values for basic columns (always update to ensure they're set)
-    uniIds.forEach((uniId, index) => {
+    for (let index = 0; index < uniIds.length; index++) {
+        const uniId = uniIds[index];
         const uni = UNIVERSITIES[index];
-        // Use INSERT OR REPLACE to ensure values are always set
         if (uniId && viewId) {
-            insertValue.run(uniId, 'nr', viewId, index + 1);
-            insertValue.run(uniId, 'uni_name', viewId, uni.name);
-            insertValue.run(uniId, 'cntr', viewId, uni.country);
-            insertValue.run(uniId, 'state', viewId, uni.state);
-            insertValue.run(uniId, 'city', viewId, uni.city);
-            insertValue.run(uniId, 'uni_type', viewId, uni.type);
-            insertValue.run(uniId, 'web', viewId, uni.website);
+            await dbRun(`
+                INSERT INTO "values" (university_id, column_key, view_id, value)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT (university_id, column_key, view_id) 
+                DO UPDATE SET value = EXCLUDED.value
+            `, [uniId, 'nr', viewId, index + 1]);
+            await dbRun(`
+                INSERT INTO "values" (university_id, column_key, view_id, value)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT (university_id, column_key, view_id) 
+                DO UPDATE SET value = EXCLUDED.value
+            `, [uniId, 'uni_name', viewId, uni.name]);
+            await dbRun(`
+                INSERT INTO "values" (university_id, column_key, view_id, value)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT (university_id, column_key, view_id) 
+                DO UPDATE SET value = EXCLUDED.value
+            `, [uniId, 'cntr', viewId, uni.country]);
+            await dbRun(`
+                INSERT INTO "values" (university_id, column_key, view_id, value)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT (university_id, column_key, view_id) 
+                DO UPDATE SET value = EXCLUDED.value
+            `, [uniId, 'state', viewId, uni.state]);
+            await dbRun(`
+                INSERT INTO "values" (university_id, column_key, view_id, value)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT (university_id, column_key, view_id) 
+                DO UPDATE SET value = EXCLUDED.value
+            `, [uniId, 'city', viewId, uni.city]);
+            await dbRun(`
+                INSERT INTO "values" (university_id, column_key, view_id, value)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT (university_id, column_key, view_id) 
+                DO UPDATE SET value = EXCLUDED.value
+            `, [uniId, 'uni_type', viewId, uni.type]);
+            await dbRun(`
+                INSERT INTO "values" (university_id, column_key, view_id, value)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT (university_id, column_key, view_id) 
+                DO UPDATE SET value = EXCLUDED.value
+            `, [uniId, 'web', viewId, uni.website]);
         }
-    });
-
-    // Seed initial semesters for both schools
-    const insertGrade = db.prepare(`
-        INSERT OR IGNORE INTO grades (id, course, grade, credits, semester, school)
-        VALUES (?, ?, ?, ?, ?, ?)
-    `);
-
-    // Pre-seed semesters for Astra Nova
-    const astraNovaSemesters = ['Semester 1', 'Semester 2', 'Semester 3', 'Semester 4'];
-    astraNovaSemesters.forEach((sem, idx) => {
-        // Create placeholder entries to ensure semesters exist
-        // These can be deleted/edited by the user
-    });
-
-    // Pre-seed semesters for M3
-    const m3Semesters = ['Semester 1', 'Semester 2', 'Semester 3', 'Semester 4'];
-    m3Semesters.forEach((sem, idx) => {
-        // Create placeholder entries to ensure semesters exist
-        // These can be deleted/edited by the user
-    });
+    }
 
     console.log('Database seeded successfully!');
 }

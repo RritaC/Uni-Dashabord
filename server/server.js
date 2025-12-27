@@ -36,8 +36,8 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use('/api', apiRouter);
 
-// Auto-seed on startup
-seedDatabase();
+// Auto-seed on startup (async)
+seedDatabase().catch(err => console.error('Error seeding database:', err));
 
 app.post('/api/ai', async (req, res) => {
     try {

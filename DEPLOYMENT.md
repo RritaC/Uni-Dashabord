@@ -84,9 +84,7 @@ Vercel provides free serverless hosting, and Supabase provides free PostgreSQL d
 
 **Important Note**: 
 - The database is fully accessible via Supabase dashboard where you can view/edit data, run queries, and manage your database.
-- **Code Update Required**: The current codebase uses SQLite (synchronous). To use Vercel + Supabase, you'll need to update the database calls to use async PostgreSQL. The files `database-pg.js` and `db-adapter.js` are provided as a starting point, but the API routes in `api.js` need to be updated to use async/await for database operations.
-
-**Alternative**: If you want to avoid code changes, use **Render** (Option C below) which supports SQLite with persistent storage on the free tier.
+- ✅ **Code is ready!** The codebase has been updated to support both SQLite (local) and PostgreSQL (Vercel). It automatically detects which database to use based on the `DATABASE_URL` environment variable.
 
 #### Option B: Deta Space (FREE - No Credit Card Required) ⭐
 **Best option if you don't want to add a payment method!**
